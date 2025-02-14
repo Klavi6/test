@@ -1,0 +1,105 @@
+settings:
+  simulation_time: 50
+  num_clients: 3
+  limit_closest_base_stations: 3
+  statistics_params:
+    warmup_ratio: 0.00
+    cooldown_ratio: 0.00
+    x:
+      min: 0
+      max: 800
+    y:
+      min: 0
+      max: 800
+  plotting_params:
+    plot_save: True
+    plot_show: True
+slices:
+  slice_1:
+    delay_tolerance: 3
+    qos_class: 5
+    bandwidth_guaranteed: 5
+    bandwidth_max: 5
+    client_weight: 1
+    threshold: 0
+    usage_pattern:
+      distribution: randint
+      params:
+        - 100
+        - 100
+base_stations: # type1 = donor(id = 100~), type2 = node(id = 1~)   50Gbps, 1hop:0.05ms by huaway microwave base station
+  - id: 100
+    type: 1
+    coverage: 25
+    Wa: 200
+    Wb: 300
+    x: 677
+    y: 375
+  - id: 1
+    type: 2
+    coverage: 25
+    Wa: 300
+    Wb: 300
+    x: 323
+    y: 375
+  - id: 2
+    type: 2
+    coverage: 25
+    Wa: 300
+    Wb: 300
+    x: 500
+    y: 500
+  - id: 3
+    type: 2
+    coverage: 25
+    Wa: 300
+    Wb: 300
+    x: 500
+    y: 250
+mobility_patterns:
+  walk:
+    distribution: randint
+    params:
+      - -1
+      - 1
+    client_weight: 1
+clients:
+  location:
+    x:
+      distribution: randint
+      params:
+        - 200
+        - 600
+    y:
+      distribution: randint
+      params:
+        - 200
+        - 500
+  usage_frequency:
+    distribution: randint
+    params:
+      - 0
+      - 100000
+    divide_scale: 1000000
+  move_inside_area: True
+  route_fix: True
+  slice_fix: True
+  usage_fix: True
+  0:
+    init_x: 500
+    init_y: 500
+    route: {}
+    slice: 0
+    usage: 100
+  1:
+    init_x: 500
+    init_y: 500
+    route: {10:[500,250]}
+    slice: 0
+    usage: 100
+  2:
+    init_x: 500
+    init_y: 500
+    route: {10:[500,250]}
+    slice: 0
+    usage: 100
