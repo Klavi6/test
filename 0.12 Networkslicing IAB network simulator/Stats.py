@@ -16,6 +16,14 @@ class Stats:
         self.handover_count = []
         self.number_of_slices = 0
         
+        # temporary begin(checking routes)
+        self.one_zero = []
+        self.two_zero = []
+        self.zero = []
+        self.whole = []
+        # temporary end
+        
+        
         for bs in self.base_stations:
             exec(f'self.AL_usage_bs{bs.pk} = []')
             exec(f'self.BL_usage_bs{bs.pk} = []')
@@ -56,6 +64,8 @@ class Stats:
             for i in self.slice_variation:
                 exec(f'stats_to_return.update(AL_usage_bs{bs.pk}_{i} = self.AL_usage_bs{bs.pk}_{i}, AL_load_ratio_bs{bs.pk}_{i} = self.AL_load_ratio_bs{bs.pk}_{i}, AL_c_count_bs{bs.pk}_{i} = self.AL_c_count_bs{bs.pk}_{i}, AL_bandwidth_allocation_bs{bs.pk}_{i} = self.AL_bandwidth_allocation_bs{bs.pk}_{i}, connect_per_attempt_bs{bs.pk}_{i} = self.connect_per_attempt_bs{bs.pk}_{i}, AL_c_block_count_bs{bs.pk}_{i} = self.AL_c_block_count_bs{bs.pk}_{i})')
                 exec(f'stats_to_return.update(BL_usage_bs{bs.pk}_{i} = self.BL_usage_bs{bs.pk}_{i}, BL_load_ratio_bs{bs.pk}_{i} = self.BL_load_ratio_bs{bs.pk}_{i}, BL_c_count_bs{bs.pk}_{i} = self.BL_c_count_bs{bs.pk}_{i}, BL_bandwidth_allocation_bs{bs.pk}_{i} = self.BL_bandwidth_allocation_bs{bs.pk}_{i})')
+        # temporary
+        stats_to_return.update(one_zero = self.one_zero, two_zero = self.two_zero, zero = self.zero, whole = self.whole)
         return stats_to_return
     
     def save_stats(self):
@@ -79,6 +89,22 @@ class Stats:
         for bs in self.base_stations:
             for sl in bs.backhaul_slices:
                 exec(f'self.BL_c_block_count_bs{bs.pk}_{sl.name}.append(0)')
+        
+        # temporary
+        self.one_zero.append(0)
+        self.two_zero.append(0)
+        self.zero.append(0)
+        self.whole.append(0)
+        for c in self.clients:
+            if c.route_to_donor == [1, 2, 0]:
+                self.one_zero[-1] += 1
+                self.whole[-1] += 1
+            elif c.route_to_donor == [2, 0]:
+                self.two_zero[-1] += 1
+                self.whole[-1] += 1
+            elif c.route_to_donor == [0]:
+                self.zero[-1] += 1
+                self.whole[-1] += 1
 
     def get_total_connected_users_ratio(self):
         t, cc = 0, 0

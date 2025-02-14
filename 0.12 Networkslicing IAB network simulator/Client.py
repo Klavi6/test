@@ -81,10 +81,13 @@ class Client:
         c.base_stations[c.route_to_donor[0]].access_slices[c.subscribed_slice_index].capacity.get(c.requested_usage)
         c.base_stations[c.route_to_donor[0]].AL_capacity.get(c.requested_usage)
         # BL
-        #for a in c.route_to_donor[1:]:
-        for a in c.route_to_donor:
-            c.base_stations[a].backhaul_slices[c.subscribed_slice_index].capacity.get(c.requested_usage)
-            c.base_stations[a].BL_capacity.get(c.requested_usage)
+        c.base_stations[0].backhaul_slices[c.subscribed_slice_index].capacity.get(c.requested_usage)
+        c.base_stations[0].BL_capacity.get(c.requested_usage)
+        for a in c.route_to_donor[1:-1]:
+            c.base_stations[a].backhaul_slices[c.subscribed_slice_index].capacity.get(2*c.requested_usage)
+            c.base_stations[a].BL_capacity.get(2*c.requested_usage)
+        c.base_stations[-1].backhaul_slices[c.subscribed_slice_index].capacity.get(c.requested_usage)
+        c.base_stations[-1].BL_capacity.get(c.requested_usage)
         
         c.last_usage = c.requested_usage
         c.total_consume_time += 1
@@ -148,8 +151,8 @@ class Client:
             c.y += y
             c.x = round(c.x, 2)
             c.y = round(c.y, 2)
-            with open("output_text.txt","a+") as f:
-                f.write("\n"f'[{i}] Client_{c.pk} alt vec[{round(vec, 2)}], alt amount[{round(amount, 2)}]')
+            #with open("output_text.txt","a+") as f:
+            #    f.write("\n"f'[{i}] Client_{c.pk} alt vec[{round(vec, 2)}], alt amount[{round(amount, 2)}]')
     
     def release_randomizer(self):
         r = random.random()

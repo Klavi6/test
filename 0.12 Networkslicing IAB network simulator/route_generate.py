@@ -18,8 +18,9 @@ def route_generate(df_user_info, data, bs_in_range, BASE_STATIONS):
     # S
     # slice infomation
     slice_info = []
-    for name in SLICES_INFO.items():
-        slice_info.append(name)
+    for name, s in SLICES_INFO.items():
+        for i in range(s['quantity']):
+            slice_info.append(f'{name}_{i}')
     
     # Wa, Wb, wa, wb
     # 基地局ごとの帯域、スライスに割り当てられている帯域
@@ -52,12 +53,11 @@ def route_generate(df_user_info, data, bs_in_range, BASE_STATIONS):
     # U
     ps = df_user_info.values.tolist()
     
-    
     prob = LpProblem('routing_generation', sense = LpMinimize)
     
     # 決定変数
     l = [[[LpVariable("l%s,%s_%s"%(u,i,j), cat="Binary") if i != j and int(e[i][j]) == 1 else 0 for j in range(len(e))] for i in range(len(e))] for u in range(len(ps))]
-    c = [[LpVariable("c%s,%s"%(u,i), cat="Binary") if distance(ps[u][2], ps[u][3], bs_info[i][0], bs_info[i][1]) <= bs_info[i][2] else 0 for i in range(len(e))] for u in range(len(ps))]
+    c = [[LpVariable("c%s,%s"%(u,i), cat="Binary") if distance(ps[u][3], ps[u][4], bs_info[i][0], bs_info[i][1]) <= bs_info[i][2] else 0 for i in range(len(e))] for u in range(len(ps))]
     ya = [[LpVariable("ya%s,%s"%(i,s), lowBound=0) for s in range(len(slice_info))] for i in range(len(e))]
     yb = [[LpVariable("yb%s,%s"%(i,s), lowBound=0) for s in range(len(slice_info))] for i in range(len(e))]
     z = LpVariable('z', lowBound=0)
@@ -72,43 +72,52 @@ def route_generate(df_user_info, data, bs_in_range, BASE_STATIONS):
     
     # Each user access one base station
     for u in range(len(ps)):
-        prob += lpSum(c[u][i] for i in range(len(e))) == 1
+        if ps[u][9]:
+            prob += lpSum(c[u][i] for i in range(len(e))) == 1
     
     # Each user's route ends at the donor
     for u in range(len(ps)):
-        prob += lpSum(l[u][i][0] for i in range(len(e))) == 1
+        if ps[u][9]:
+            prob += lpSum(l[u][i][0] for i in range(len(e))) + c[u][0] == 1
     
     # If the u uses the link between vi and vj, a subsequent backhaul link must exist (applied big-M, M=1)
     for u in range(len(ps)):
-        #for j in range(len(e)-1):
-        for j in range(1,len(e)):
-            #for i in range(len(e)-1):
-            for i in range(1,len(e)):
-                if i != j and int(e[i][j]) == 1:
-                    prob += l[u][i][j] <= lpSum(l[u][j][k] if k != i and k != j else 0 for k in range(len(e)))
-                    prob += lpSum(l[u][j][k] if k != i and k != j else 0 for k in range(len(e))) <= 2 - l[u][i][j]
+        if ps[u][9]:
+            for j in range(1,len(e)):
+                for i in range(1,len(e)):
+                    if i != j and int(e[i][j]) == 1:
+                        prob += l[u][i][j] <= lpSum(l[u][j][k] if k != i and k != j else 0 for k in range(len(e)))
+                        prob += lpSum(l[u][j][k] if k != i and k != j else 0 for k in range(len(e))) <= 2 - l[u][i][j]
     
     # If the u access to vi, a subsequent backhaul link must exist (applied big-M, M=1)
     for u in range(len(ps)):
-        #for i in range(len(e)-1):
-        for i in range(1,len(e)):
-            if c[u][i] == 1:
-                prob += c[u][i] <= lpSum(l[u][i][j] for j in range(len(e)))
-                prob += lpSum(l[u][i][j] for j in range(len(e))) <= 2 - c[u][i]
+        if ps[u][9]:
+            for i in range(1,len(e)):
+                if c[u][i] == 1:
+                    prob += c[u][i] <= lpSum(l[u][i][j] for j in range(len(e)))
+                    prob += lpSum(l[u][i][j] for j in range(len(e))) <= 2 - c[u][i]
     
     # prohibit exceeding maximum bandwidth allocated to access link of slices at each base stations
     for i in range(len(e)):
         for sl in range(len(slice_info)):
-            prob += lpSum(ps[u][1] * c[u][i] if ps[u][0] == sl else 0\
+            prob += lpSum(ps[u][2] * c[u][i] if ps[u][1] == sl else 0\
                             for u in range(len(ps))) \
                             <= wa[i][sl] + ya[i][sl]
     
     # prohibit exceeding maximum bandwidth allocated to backhaul link of slices at each base station
-    for j in range(len(e)):
+    # donor
+    for sl in range(len(slice_info)):
+        prob += lpSum(ps[u][2] * l[u][i][0] if i != 0 and ps[u][1] == sl else 0\
+                        for i in range(len(e)) for u in range(len(ps))) \
+                + lpSum(ps[u][2] * c[u][0] if ps[u][1] == sl else 0\
+                        for u in range(len(ps))) \
+                        <= wb[0][sl] + yb[0][sl]
+    # nodes
+    for j in range(1,len(e)):
         for sl in range(len(slice_info)):
-            prob += lpSum(ps[u][1] * l[u][i][j] if i != j and ps[u][0] == sl else 0\
+            prob += lpSum(2 * ps[u][2] * l[u][i][j] if i != j and ps[u][1] == sl else 0\
                             for i in range(len(e)) for u in range(len(ps))) \
-                    + lpSum(ps[u][1] * c[u][j] if ps[u][0] == sl else 0\
+                    + lpSum(ps[u][2] * c[u][j] if ps[u][1] == sl else 0\
                             for u in range(len(ps))) \
                             <= wb[j][sl] + yb[j][sl]
     
@@ -124,7 +133,7 @@ def route_generate(df_user_info, data, bs_in_range, BASE_STATIONS):
     """
     # delay toleranceの範囲内
     for k in range(len(ps)):
-        if ps[k][0] != len(e)-1: # ユーザーがドナーに接続していない場合のみ
+        if ps[k][1] != len(e)-1: # ユーザーがドナーに接続していない場合のみ
             prob += lpSum(l[i][j][k] if i != j else 0 for i in range(len(e)) for j in range(len(e))) * 0.05 <= slice_info[ps[k][1]][1]["delay_tolerance"]
     """
     #with open("output_text.txt","a+") as f:
@@ -140,54 +149,55 @@ def route_generate(df_user_info, data, bs_in_range, BASE_STATIONS):
         route, ps_route = [], []
         link_pre = None
         for u in range(len(ps)):
-            
-            """
-            with open("output_text.txt","a+") as f:
-                f.write("\n")
-            for i in range(len(e)):
-                if round(value(c[u][i])) == 1:
-                    with open("output_text.txt","a+") as f:
-                        f.write(f'{c[u][i]} ')
-                for j in range(len(e)):
-                    if round(value(l[u][i][j])) == 1:
-                        with open("output_text.txt","a+") as f:
-                            f.write(f'{l[u][i][j]} ')  
-            """
-            
-            # donorへのリンクがあるかどうかを確認
-            df_user_info.iat[u, 4] = False
-            
-            for i in range(len(e)):
-                if round(value(l[u][i][0])) == 1:
-                    df_user_info.iat[u, 4] = True
-                if round(value(c[u][0])) == 1:
-                    df_user_info.iat[u, 4] = True
-            
-            if df_user_info.iat[u, 4] == True:
-                
+            if ps[u][9]:
+                """
+                with open("output_text.txt","a+") as f:
+                    f.write("\n")
                 for i in range(len(e)):
                     if round(value(c[u][i])) == 1:
-                        route.append(i)
-                        link_pre = i
-                if link_pre is not None:
-                    while link_pre != 0:
-                        for i in range(len(e)):
-                            for j in range(len(e)):
-                                if round(value(l[u][i][j])) == 1 and i == link_pre:
-                                    route.append(j)
-                                    link_pre = j
-                else:
-                    pass
+                        with open("output_text.txt","a+") as f:
+                            f.write(f'{c[u][i]} ')
+                    for j in range(len(e)):
+                        if round(value(l[u][i][j])) == 1:
+                            with open("output_text.txt","a+") as f:
+                                f.write(f'{l[u][i][j]} ')  
+                """
+                
+                # donorへのリンクがあるかどうかを確認(green_to_donor更新)
+                df_user_info.iat[u, 5] = False
+                
+                for i in range(len(e)):
+                    if round(value(l[u][i][0])) == 1:
+                        df_user_info.iat[u, 5] = True
+                    if round(value(c[u][0])) == 1:
+                        df_user_info.iat[u, 5] = True
+                
+                # routeのリストを作成
+                if df_user_info.iat[u, 5] == True:
+                    
+                    for i in range(len(e)):
+                        if round(value(c[u][i])) == 1:
+                            route.append(i)
+                            link_pre = i
+                    if link_pre is not None:
+                        while link_pre != 0:
+                            for i in range(len(e)):
+                                for j in range(len(e)):
+                                    if round(value(l[u][i][j])) == 1 and i == link_pre:
+                                        route.append(j)
+                                        link_pre = j
+                    else:
+                        pass
             
             ps_route.append(route)
             route = []
         
         for (p, r) in zip(range(len(ps)), ps_route):
             if r != []:
-                df_user_info.iat[p, 5] = r
+                df_user_info.iat[p, 6] = r
             else:
-                df_user_info.iat[p, 5] = []
-                df_user_info.iat[p, 4] = False
+                df_user_info.iat[p, 6] = []
+                df_user_info.iat[p, 5] = False
         
         #print(f"objective value {value(prob.objective)}")
         print(f"calculation time {time_stop - time_start:.3f} s")

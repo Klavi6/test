@@ -10,7 +10,7 @@ settings:
       min: 0
       max: 200
   plotting_params:
-    plot_save: True
+    label: False
     plot_show: True
   bs_batch_change:
     change: True
@@ -24,11 +24,12 @@ settings:
       Wb: 10000000000
 slices:
   S1: #eMBB
+    quantity: 100
     delay_tolerance: 3
     qos_class: 5
     bandwidth_guaranteed: 1
     bandwidth_max: 5
-    client_weight: 0.5
+    client_weight: 1.0
     threshold: 0
     usage_pattern:
       distribution: randint
@@ -36,11 +37,12 @@ slices:
         - 100
         - 100
   S2: # URLLC
+    quantity: 0
     delay_tolerance: 1
     qos_class: 1
     bandwidth_guaranteed: 1
     bandwidth_max: 2
-    client_weight: 0.5
+    client_weight: 0
     threshold: 0
     usage_pattern:
       distribution: randint
@@ -73,8 +75,8 @@ mobility_patterns:
   walk:
     distribution: uniform
     params:
-      - -5
-      - 5
+      - -10
+      - 10
     client_weight: 1
 clients:
   location:

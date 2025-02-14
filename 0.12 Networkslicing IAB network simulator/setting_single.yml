@@ -10,7 +10,7 @@ settings:
       min: 0
       max: 600
   plotting_params:
-    plot_save: True
+    label: False
     plot_show: True
   bs_batch_change:
     change: True
@@ -24,6 +24,7 @@ settings:
       Wb: 10000
 slices:
   S1: #eMBB
+    quantity: 1000
     delay_tolerance: 3
     qos_class: 5
     bandwidth_guaranteed: 1
@@ -36,6 +37,7 @@ slices:
         - 100
         - 100
   S2: # URLLC
+    quantity: 10
     delay_tolerance: 1
     qos_class: 1
     bandwidth_guaranteed: 1

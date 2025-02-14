@@ -13,15 +13,18 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
     MOBILITY_PATTERNS = data['mobility_patterns']
     BASE_STATIONS = data['base_stations']
     CLIENTS = data['clients']
+    PLOT = data['settings']['plotting_params']
 
-    collected, slice_weights = 0, []
+    collected, slice_weights, slice_quantity = 0, [], []
     for __, s in SLICES_INFO.items():
         collected += s['client_weight']
         slice_weights.append(collected)
+        slice_quantity.append(s['quantity'])
 
     slice_variation = []
     for name, s in SLICES_INFO.items():
-        slice_variation.append(name)
+        for i in range(s['quantity']):
+            slice_variation.append(f'{name}_{i}')
 
     collected, mb_weights = 0, []
     for __, mb in MOBILITY_PATTERNS.items():
@@ -56,21 +59,23 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
         
         # access link
         for name, s in SLICES_INFO.items():
-            s = Slice.Slice(name, 0, s['client_weight'],
-                    s['delay_tolerance'],
-                    s['qos_class'], s['bandwidth_guaranteed'],
-                    s['bandwidth_max'], 0, usage_patterns[name])
-            s.capacity = Container.Container(capacity=0)
-            access_slices.append(s)
+            for n in range(s['quantity']):
+                sl = Slice.Slice(f'{name}_{n}', 0, s['client_weight'],
+                        s['delay_tolerance'],
+                        s['qos_class'], s['bandwidth_guaranteed'],
+                        s['bandwidth_max'], 0, usage_patterns[name])
+                sl.capacity = Container.Container(capacity=0)
+                access_slices.append(sl)
         
         # backhaul link
         for name, s in SLICES_INFO.items():
-            s = Slice.Slice(name, 0, s['client_weight'],
-                    s['delay_tolerance'],
-                    s['qos_class'], s['bandwidth_guaranteed'],
-                    s['bandwidth_max'], 0, usage_patterns[name])
-            s.capacity = Container.Container(capacity=0)
-            backhaul_slices.append(s)
+            for n in range(s['quantity']):
+                sl = Slice.Slice(f'{name}_{n}', 0, s['client_weight'],
+                        s['delay_tolerance'],
+                        s['qos_class'], s['bandwidth_guaranteed'],
+                        s['bandwidth_max'], 0, usage_patterns[name])
+                sl.capacity = Container.Container(capacity=0)
+                backhaul_slices.append(sl)
         
         base_station = BaseStation.BaseStation(i, b['x'], b['y'], Coverage.Coverage((b['x'], b['y']), coverage), b_id, b_type, Wa, Wb, access_slices, backhaul_slices)
         base_station.AL_capacity = Container.Container(capacity=Wa)
@@ -85,7 +90,7 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
     y_vals = SETTINGS['statistics_params']['y']
     stats = Stats.Stats(base_stations, slice_variation, None, ((x_vals['min'], x_vals['max']), (y_vals['min'], y_vals['max'])))
 
-    df_user_info = pandas.DataFrame(columns=["slice", "bandwidth", "x", "y", "green_to_donor", "route_to_donor", "pre_bs", "pre_route"])
+    df_user_info = pandas.DataFrame(columns=["id", "slice", "bandwidth", "x", "y", "green_to_donor", "route_to_donor", "pre_bs", "pre_route", "in_range"])
 
     clients = []
     rng = np.random.default_rng()
@@ -114,11 +119,7 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
         if CLIENTS['slice_fix']:
             connected_slice_index = CLIENTS[i]['slice']
         else:
-            if i < 50:
-                connected_slice_index = 0
-            else:
-                connected_slice_index = 1
-            #connected_slice_index = utils.get_random_slice_index(slice_weights)
+            connected_slice_index = utils.get_random_slice_index(slice_weights, slice_quantity)
         
         # usage
         if CLIENTS['usage_fix']:
@@ -139,12 +140,12 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
     utils.KDTree.run(clients, base_stations, 0)
     
     stats.clients = clients
-    
+    """
     xlim_left = int(SIM_TIME * SETTINGS['statistics_params']['warmup_ratio'])
     xlim_right = int(i * (1 - SETTINGS['statistics_params']['cooldown_ratio']))
     graph = Graph.Graph(base_stations, clients, slice_variation, (xlim_left, xlim_right),
                         ((x_vals['min'], x_vals['max']), (y_vals['min'], y_vals['max'])))
-    
+    """
     # ===== simulation begin =====
     for i in range(1,SIM_TIME+1):
         
@@ -185,10 +186,16 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
             if  c.requested_usage <= 0:
                 c.generate_usage(i)
             
+            # UEがいずれかの基地局の範囲内にあるかどうか
+            c.in_range = False
+            for bs in base_stations:
+                if utils.distance(c.x, c.y, bs.x, bs.y) <= bs.coverage.radius:
+                    c.in_range = True
+            
             # データをc.df_user_infoに代入
             try:
-                df_user_info.loc[c.pk, ["slice", "bandwidth", "x", "y", "green_to_donor", "route_to_donor", "pre_bs", "pre_route"]]\
-                            = [c.subscribed_slice_index, c.requested_usage, c.x, c.y, False, [], c.pre_bs, c.pre_route]
+                df_user_info.loc[c.pk, ["id", "slice", "bandwidth", "x", "y", "green_to_donor", "route_to_donor", "pre_bs", "pre_route", "in_range"]]\
+                            = [c.pk, c.subscribed_slice_index, c.requested_usage, c.x, c.y, False, [], c.pre_bs, c.pre_route, c.in_range]
             except:
                 print("Error: couldn't find routes from UEs to the donor")
                 return False
@@ -201,10 +208,10 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
             f.write("\n"f'[{i}] {df_user_info}')
         
         for c in clients:
-            c.green_to_donor = c.df_user_info.iat[c.pk, 4]
-            c.route_to_donor = c.df_user_info.iat[c.pk, 5]
+            c.green_to_donor = c.df_user_info.iat[c.pk, 5]
+            c.route_to_donor = c.df_user_info.iat[c.pk, 6]
             if c.green_to_donor == True:
-                c.base_station = c.base_stations[c.df_user_info.iat[c.pk, 5][0]]
+                c.base_station = c.base_stations[c.df_user_info.iat[c.pk, 6][0]]
             else:
                 c.base_station = None
         
@@ -271,7 +278,7 @@ def main(SIM_TIME, NUM_CLIENTS, data, bs_in_range):
     xlim_left = int(SIM_TIME * SETTINGS['statistics_params']['warmup_ratio'])
     xlim_right = int(i * (1 - SETTINGS['statistics_params']['cooldown_ratio']))
     graph = Graph.Graph(base_stations, clients, slice_variation, (xlim_left, xlim_right),
-                        ((x_vals['min'], x_vals['max']), (y_vals['min'], y_vals['max'])))
+                        ((x_vals['min'], x_vals['max']), (y_vals['min'], y_vals['max'])), PLOT)
     graph.draw_all(**stats.get_stats())
     stats.save_stats()
     end_time = time.time()

@@ -1,4 +1,4 @@
-import main, yaml, os, csv, sys
+import main, yaml, os, csv, sys, datetime
 
 
 SIM_TIME = 500
@@ -44,6 +44,7 @@ while True:
         NUM_CLIENTS -= round(NUM_CLIENTS/10)
     else:
         with open("output_text.txt","a+") as f:
+            f.write("\n"f'{datetime.datetime.now()}')
             f.write("\n"f'======logging proccess terminated======')
         
         sys.exit(0)

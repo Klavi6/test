@@ -83,17 +83,23 @@ def get_dist(d):
 
 def get_random_mobility_pattern(vals, mobility_patterns):
     i = 0
-    r = random.random()
+    #r = random.random()
+    r = rng.random()
 
     while vals[i] < r:
         i += 1
 
     return mobility_patterns[i]
 
-def get_random_slice_index(vals):
+def get_random_slice_index(slice_weights, slice_quantity):
     i = 0
-    r = random.random()
+    #r = random.random()
+    r = rng.random()
 
-    while vals[i] < r:
+    while slice_weights[i] < r:
         i += 1
-    return i
+    #j = random.randrange(slice_quantity[i])
+    j = rng.integers(slice_quantity[i])
+    for k in range(i):
+        j += slice_quantity[k]
+    return j

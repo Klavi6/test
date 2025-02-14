@@ -1,6 +1,4 @@
 settings:
-  simulation_time: 50
-  num_clients: 3
   limit_closest_base_stations: 3
   statistics_params:
     warmup_ratio: 0.00
@@ -12,10 +10,21 @@ settings:
       min: 0
       max: 800
   plotting_params:
-    plot_save: True
+    label: False
     plot_show: True
+  bs_batch_change:
+    change: True
+    1: # donor
+      coverage: 200
+      Wa: 10000000000
+      Wb: 10000000000
+    2: # node
+      coverage: 200
+      Wa: 10000000000
+      Wb: 10000000000
 slices:
-  slice_1:
+  S1:
+    quantity: 1000
     delay_tolerance: 3
     qos_class: 5
     bandwidth_guaranteed: 5
